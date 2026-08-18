@@ -1,4 +1,4 @@
-# Estate-scale Operational Energy and Decarbonisation Analysis
+# Python implementation of the spatial-temporal energy mapping and decarbonisation framework developed for the dissertation.
 
 This repository contains the Python code developed for an anonymised dissertation investigating estate-scale operational energy performance and decarbonisation using measured building energy data.
 
