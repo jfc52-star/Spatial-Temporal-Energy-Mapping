@@ -1,5 +1,5 @@
 """
-metricsV2.py
+metricsV3.py
 ------------
 Building energy performance metrics for the Cambridge Estates dataset.
 
@@ -37,8 +37,6 @@ import pandas as pd
 # 1. CONFIGURATION
 # =============================================================================
 from config import DATA_DIR, WEATHER_DIR
-# DATA_DIR = r'C:\Users\joshc\OneDrive\Documents\cambridge-energy\repo\building_data\processed_data'
-# WEATHER_DIR = r'C:\Users\joshc\OneDrive\Documents\cambridge-energy\repo\aux_data\MetOffice Weather Data\processed_data\bedford'
 # Hours treated as unoccupied for baseload calculation (00:00–06:00 default)
 UNOCC_HOURS = range(0, 6)
 
