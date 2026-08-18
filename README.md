@@ -41,7 +41,7 @@ Calculates pairwise building similarity using Gower, Euclidean, load-profile and
 `similarity_viewing.py`
 Produces the interactive similarity dashboard.
 
-`economies_of_scale.py`
+`Economies_of_scaleV2.py`
 Implements the two-stage similarity and delivery-cohort framework.
 
 `geocode_postcodes.py`
