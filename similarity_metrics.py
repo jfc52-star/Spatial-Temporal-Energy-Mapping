@@ -910,171 +910,58 @@ def compute_all_years(temporal_df=None, profiles_df=None, meta=None):
 # 7. ENTRY POINT
 # =============================================================================
 
+# =============================================================================
+# 7. ENTRY POINT
+# =============================================================================
+
+TEMPORAL_CACHE = 'metrics_results_temporal.csv'
+METADATA_CACHE = 'metadata_table.csv'
+PROFILES_CACHE = 'daily_profiles.pkl'
+
+
 if __name__ == '__main__':
 
-    print('Loading inputs')
-    temporal = compute_all_buildings_temporal(data_dir=DATA_DIR)
-    meta     = _load_metadata_table()
-    if os.path.exists('daily_profiles.pkl'):
-        profiles = pd.read_pickle('daily_profiles.pkl')
-    else:
-        profiles = compute_all_profiles(data_dir=DATA_DIR)
-        profiles.to_pickle('daily_profiles.pkl')
+    print('Loading inputs...')
 
-    print('\nComputing all distance matrices across all years')
-    payload = compute_all_years(temporal, profiles, meta)
+    # Temporal building metrics
+    if os.path.exists(TEMPORAL_CACHE):
+        print(f'  loading {TEMPORAL_CACHE}')
+        temporal = pd.read_csv(TEMPORAL_CACHE)
+    else:
+        print('  computing temporal metrics')
+        temporal = compute_all_buildings_temporal(data_dir=DATA_DIR)
+        temporal.to_csv(TEMPORAL_CACHE, index=False)
+
+    # Building metadata
+    if os.path.exists(METADATA_CACHE):
+        print(f'  loading {METADATA_CACHE}')
+        meta = pd.read_csv(METADATA_CACHE, index_col=0)
+    else:
+        print('  loading metadata')
+        meta = _load_metadata_table()
+        meta.to_csv(METADATA_CACHE)
+
+    # Daily profiles
+    if os.path.exists(PROFILES_CACHE):
+        print(f'  loading {PROFILES_CACHE}')
+        profiles = pd.read_pickle(PROFILES_CACHE)
+    else:
+        print('  computing daily profiles')
+        profiles = compute_all_profiles(data_dir=DATA_DIR)
+        profiles.to_pickle(PROFILES_CACHE)
+
+    print('\nComputing similarity matrices across all available years...')
+    payload = compute_all_years(
+        temporal_df=temporal,
+        profiles_df=profiles,
+        meta=meta,
+    )
 
     pd.to_pickle(payload, CACHE_PATH)
+
     print(f'\nSaved similarity cache to {CACHE_PATH}')
-    print(f'  years: {payload["years"]}')
-    print(f'  metrics: {list(payload["feature_info_static"].keys())}')
-    import pickle
-    import numpy as np
-
-    with open('similarity_cache.pkl', 'rb') as f:
-        cache = pickle.load(f)
-
-    print(f"Years stored:  {cache['years']}")
-    print(f"Metrics seen:  {list(cache['feature_info_static'].keys())}")
-    print()
-
-    for year in cache['years']:
-        yd = cache['per_year'][year]
-        print(f"=== {year} ===")
-        for metric, dist in yd['distances'].items():
-            n = dist.shape[0]
-            # Distance matrix sanity
-            symmetric = np.allclose(dist, dist.T)
-            zero_diag = np.allclose(np.diag(dist), 0)
-            nonneg    = (dist >= 0).all()
-            finite    = np.isfinite(dist).all()
-            rng       = (dist.min(), dist.max())
-            print(f"  {metric:<25} n={n:>3}  "
-                f"symmetric={symmetric}  zero_diag={zero_diag}  "
-                f"nonneg={nonneg}  finite={finite}  range=[{rng[0]:.3f}, {rng[1]:.3f}]")
-    
-    
-    print(f"{'Year':<6} ", end='')
-    metrics = sorted(cache['feature_info_static'].keys())
-    for m in metrics:
-        print(f"{m[:18]:<20}", end='')
-    print()
-
-    for year in cache['years']:
-        print(f"{year:<6} ", end='')
-        yd = cache['per_year'][year]
-        for m in metrics:
-            if m in yd['distances']:
-                print(f"{yd['distances'][m].shape[0]:<20}", end='')
-            else:
-                print(f"{'—':<20}", end='')
-        print()
-    
-    def check_known_pairs(year=2022, metric='gower'):
-        """
-        Validate similarity matrices by checking known pairs:
-        - Buildings on the same site / function should be CLOSE
-        - Buildings of very different function should be FAR
-        """
-        yd = cache['per_year'][year]
-        if metric not in yd['distances']:
-            print(f"No {metric} for {year}"); return
-
-        dist = yd['distances'][metric]
-        bids = yd['building_ids'][metric]
-        bid_idx = {b: i for i, b in enumerate(bids)}
-
-        # KNOWN-SIMILAR pairs (Sidgwick site, both heating-heavy, similar function)
-        similar_pairs = [
-            ('b74', 'b69'),   # both Sidgwick, both heating-heavy
-            ('b74', 'b72'),
-            ('b79', 'b77'),   # both Downing, both gas-dependent
-            ('b101', 'b104'), # both West Cambridge engineering
-        ]
-        # KNOWN-DIFFERENT pairs (different function, different site)
-        different_pairs = [
-            ('b59', 'b50'),   # Engineering process vs small meeting use
-            ('b62', 'b101'),  # Biological vs Engineering, different sites
-        ]
-
-        def get_dist(a, b):
-            if a in bid_idx and b in bid_idx:
-                return dist[bid_idx[a], bid_idx[b]]
-            return None
-
-        print(f"\n{metric.upper()} — year {year}")
-        print(f"Distance range: [{dist[dist > 0].min():.3f}, {dist.max():.3f}]")
-        print(f"Median pairwise distance: {np.median(dist[np.triu_indices_from(dist, k=1)]):.3f}")
-        print()
-        print("Expected SIMILAR (low distance):")
-        for a, b in similar_pairs:
-            d = get_dist(a, b)
-            if d is not None:
-                print(f"  {a} ↔ {b}:  {d:.3f}")
-            else:
-                print(f"  {a} ↔ {b}:  (one or both missing from cohort)")
-        print()
-        print("Expected DIFFERENT (high distance):")
-        for a, b in different_pairs:
-            d = get_dist(a, b)
-            if d is not None:
-                print(f"  {a} ↔ {b}:  {d:.3f}")
-            else:
-                print(f"  {a} ↔ {b}:  (one or both missing from cohort)")
-
-    check_known_pairs(2022, 'gower')
-    check_known_pairs(2022, 'profile_euclidean_elec')
-
-    from archive.Economies_of_scale import run_stage1  # or wherever you put it
-
-    summary, membership = run_stage1(year=2022, n_clusters=6)
-
-    # Now eyeball the clusters
-    print("\n=== Cluster validation ===")
-    print("Buildings expected to cluster together (same use type, same site):")
-    print()
-    known_groups = {
-        'Sidgwick gas-dependent':    ['b74', 'b53', 'b72', 'b69', 'b120', 'b75', 'b71'],
-        'Downing gas-dependent':     ['b79', 'b77', 'b85'],
-        'West Cambridge engineering':['b101', 'b102', 'b104', 'b96', 'b31', 'b59'],
-    }
-
-    for group_name, expected in known_groups.items():
-        clusters_seen = []
-        for b in expected:
-            if b in membership.index:
-                clusters_seen.append((b, int(membership.loc[b, 'cluster']),
-                                    membership.loc[b, 'archetype']))
-        print(f"{group_name}:")
-        for b, c, a in clusters_seen:
-            print(f"  {b}  cluster={c}  archetype={a}")
-        # How many distinct clusters?
-        n_clusters = len(set(c for _, c, _ in clusters_seen))
-        print(f"  → {n_clusters} distinct cluster(s) — "
-            f"{'tight' if n_clusters == 1 else 'scattered'}")
-        print()
-
-    
+    print(f'  Years:   {payload["years"]}')
+    print(f'  Metrics: {list(payload["feature_info_static"].keys())}')
+    print('\nDone.')
 
 
-
-    def top_neighbours(year, metric, target, top_n=5):
-        yd = cache['per_year'][year]
-        if metric not in yd['distances']:
-            return None
-        dist = yd['distances'][metric]
-        bids = yd['building_ids'][metric]
-        if target not in bids:
-            return None
-        i = bids.index(target)
-        # Sort by distance, excluding self
-        order = np.argsort(dist[i])
-        return [(bids[j], dist[i, j]) for j in order if bids[j] != target][:top_n]
-
-    for target in ['b101', 'b59', 'b74']:
-        print(f"\nTop-5 nearest neighbours for {target} (2022):")
-        for metric in ['gower', 'euclidean', 'profile_euclidean_elec', 'profile_kl_elec']:
-            neighbours = top_neighbours(2022, metric, target)
-            if neighbours:
-                names = ', '.join(f"{b} ({d:.2f})" for b, d in neighbours)
-                print(f"  {metric:<25} {names}")
