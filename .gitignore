@@ -1,0 +1,51 @@
+# RESTRICTED / NON-PUBLIC DATA
+
+data/*
+!data/README.md
+
+repo/
+Building_Mapping.xlsx
+building_centroids.csv
+
+*.gpkg
+*PV*FIT*.xlsx
+
+# GENERATED BUILDING-LEVEL RESULTS AND CACHES
+
+metrics_results.csv
+metrics_results_temporal.csv
+metadata_table.csv
+distribution_summary.csv
+cldc_summary.csv
+
+daily_profiles.pkl
+daily_signatures.pkl
+similarity_cache.pkl
+*.pkl
+
+
+# GENERATED VISUALISATIONS
+# These contain embedded building-level data
+
+gis_map.html
+non_spatial.html
+similarity.html
+stage2_cohort_map.html
+
+outputs/
+
+
+# PYTHON / LOCAL ENVIRONMENT
+
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# IDE / operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
